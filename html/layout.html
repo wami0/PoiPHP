@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title><?= $s->html($title ?? "PoiPHP") ?></title>
+</head>
+<body>
+
+<header>
+    <!-- 共通ヘッダー（必要ならここに書く） -->
+</header>
+
+<main>
+    <?= $_poi_content_for_layout ?>  <!-- ページごとの内容がここに入る -->
+</main>
+
+<footer>
+    <!-- 共通フッター（必要ならここに書く） -->
+</footer>
+
+</body>
+</html>
