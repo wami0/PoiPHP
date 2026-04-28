@@ -1,6 +1,5 @@
 <?php
 
-<?php
 
 class Upload
 {
