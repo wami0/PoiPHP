@@ -1,8 +1,8 @@
 <?php
 
+
 class Database
 {
-    // public ‚É‚µ‚ÄAŠO•”iModel‚È‚Çj‚©‚ç $this->db->pdo->prepare() ‚ÆŒÄ‚×‚é‚æ‚¤‚É‚·‚é
     public $pdo;
 
     public function __construct($dsn = null, $user = null, $pass = null, $options = [])
@@ -24,8 +24,6 @@ class Database
         $this->pdo = new PDO($dsn, $user, $pass, $options);
     }
 
-    // --- ModelƒNƒ‰ƒX‚ª“à•”‚Å PDO ‚Ìƒƒ\ƒbƒh‚ð’¼ÚŽg‚¢‚½‚¢ê‡‚Ì‚½‚ß‚Ì’†Œp ---
-    
     public function prepare($sql)
     {
         return $this->pdo->prepare($sql);
@@ -36,14 +34,28 @@ class Database
         return $this->pdo->lastInsertId();
     }
 
-    // ------------------------------------------------------------------
-
     // SELECT
     public function query($sql, $params = [])
     {
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt;
+    }
+
+    // 1è¡Œã ã‘å–å¾—ï¼ˆè¦‹ã¤ã‹ã‚‰ãªã‘ã‚Œã°nullï¼‰
+    public function fetchOne($sql, $params = [])
+    {
+        $stmt = $this->query($sql, $params);
+        $row = $stmt->fetch(); // æ—¢å®šãŒ FETCH_ASSOC
+        return $row === false ? null : $row;
+    }
+
+    // 1ã¤ã®å€¤ã ã‘å–å¾—ï¼ˆå…ˆé ­è¡Œã®å…ˆé ­ã‚«ãƒ©ãƒ ï¼‰
+    public function fetchValue($sql, $params = [])
+    {
+        $stmt = $this->query($sql, $params);
+        $val = $stmt->fetchColumn(0);
+        return $val === false ? null : $val;
     }
 
     // INSERT
@@ -78,3 +90,4 @@ class Database
         return $stmt->execute($params);
     }
 }
+?>
