@@ -2,7 +2,7 @@
 
 /*
  * PoiPHP Framework
- * Version 1.1.1
+ * Version 1.1.2
  */
 
 // --- 1. 環境設定 ---
@@ -79,13 +79,5 @@ if (class_exists('Validate')) {
 }
 
 // --- 6. 描画処理 ---
-if (!empty($c->header_file)) {
-    include $html_dir . $c->header_file;
-}
-
 // action() 内の処理が終わり、最終的な描画を実行
 $c->render();
-
-if (!empty($c->footer_file)) {
-    include $html_dir . $c->footer_file;
-}
