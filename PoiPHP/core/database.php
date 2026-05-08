@@ -1,6 +1,5 @@
 <?php
 
-
 class Database
 {
     public $pdo;
@@ -34,7 +33,7 @@ class Database
         return $this->pdo->lastInsertId();
     }
 
-    // SELECT
+    // SELECT / 汎用実行
     public function query($sql, $params = [])
     {
         $stmt = $this->pdo->prepare($sql);
@@ -42,11 +41,11 @@ class Database
         return $stmt;
     }
 
-    // 1行だけ取得（見つからなければnull）
+    // 1行だけ取得（見つからなければ null）
     public function fetchOne($sql, $params = [])
     {
         $stmt = $this->query($sql, $params);
-        $row = $stmt->fetch(); // 既定が FETCH_ASSOC
+        $row = $stmt->fetch();
         return $row === false ? null : $row;
     }
 
@@ -62,8 +61,8 @@ class Database
     public function insert($table, $data)
     {
         $fields = array_keys($data);
-        $cols = implode(',', $fields);
-        $place = implode(',', array_fill(0, count($fields), '?'));
+        $cols   = implode(',', $fields);
+        $place  = implode(',', array_fill(0, count($fields), '?'));
 
         $sql = "INSERT INTO {$table} ({$cols}) VALUES ({$place})";
         $stmt = $this->pdo->prepare($sql);
@@ -88,6 +87,30 @@ class Database
         $sql = "DELETE FROM {$table} WHERE {$condition}";
         $stmt = $this->pdo->prepare($sql);
         return $stmt->execute($params);
+    }
+
+    // Transaction 開始
+    public function beginTransaction()
+    {
+        return $this->pdo->beginTransaction();
+    }
+
+    // Transaction 確定
+    public function commit()
+    {
+        return $this->pdo->commit();
+    }
+
+    // Transaction 取り消し
+    public function rollBack()
+    {
+        return $this->pdo->rollBack();
+    }
+
+    // Transaction 中かどうか
+    public function inTransaction()
+    {
+        return $this->pdo->inTransaction();
     }
 }
 ?>
