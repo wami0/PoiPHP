@@ -2,7 +2,7 @@
 
 /*
  * PoiPHP Framework
- * Version 1.1.2
+ * Version 1.1.3
  */
 
 // --- 1. 環境設定 ---
