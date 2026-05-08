@@ -4,7 +4,7 @@ class Controller
 {
     public $vars = [];
     public $template = null;
-    public $layout;
+    public $layout = null;
 
     public $sanitize;
     public $s;
@@ -14,6 +14,8 @@ class Controller
     public $csrf;
     public $upload;
 
+    public $header_file = null;
+    public $footer_file = null;
 
     // 変数セット
     public function set($name, $value)
@@ -34,6 +36,12 @@ class Controller
         $this->template = $file;
     }
 
+    // レイアウトファイル指定
+    public function setLayoutFile($file)
+    {
+        $this->layout = $file;
+    }
+
     // Sanitize
     public function setSanitize(&$sanitize)
     {
@@ -51,37 +59,25 @@ class Controller
     // 描画
     public function render()
     {
-        extract($this->vars);
-    
-        $s = $this->s;
-        $v = $this->v;
-    
-        // テンプレートをバッファリング
-        ob_start();
-        include SCRIPTDIR . $this->template;
-        $_poi_content = ob_get_clean();
-    
-        // layout が設定されていて、ファイルが存在する場合のみ使う
-        if ($this->layout) {
-            $layoutFile = SCRIPTDIR . $this->layout;
-            if (file_exists($layoutFile)) {
-                include $layoutFile;
-                return;
-            }
-        }
-    
-        // layout が無い or ファイルが無い → テンプレートだけ出す
-        echo $_poi_content;
+        $view = new View($this->s, $this);
+
+        $view->setFile(
+            $this->template ? SCRIPTDIR . $this->template : null,
+            null
+        );
+
+        $view->setVars($this->vars);
+        $view->layout = $this->layout ? SCRIPTDIR . $this->layout : null;
+        $view->header_file = $this->header_file ? SCRIPTDIR . $this->header_file : null;
+        $view->footer_file = $this->footer_file ? SCRIPTDIR . $this->footer_file : null;
+
+        $view->display();
     }
-
-
-
 
     public function loadModel($name)
     {
         global $config;
-    
-        // DB 接続（必要な時だけ）
+
         $db = new PDO(
             $config['database']['dsn'],
             $config['database']['user'],
@@ -91,18 +87,16 @@ class Controller
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]
         );
-    
-        // モデルファイル（任意で作る）
+
         $file = SCRIPTDIR . "models/{$name}.php";
         if (file_exists($file)) {
             require_once $file;
             $class = $name . "Model";
             $this->$name = new $class($db);
         } else {
-            // モデルファイルが無い場合は汎用 Model を使う
             $this->$name = new Model($db, strtolower($name));
         }
-    
+
         return $this->$name;
     }
 
@@ -112,6 +106,4 @@ class Controller
         echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         exit;
     }
-
-
 }
