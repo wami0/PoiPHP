@@ -8,6 +8,9 @@ class Sanitize
         if (is_array($data)) {
             return array_map([$this, 'html'], $data);
         }
+        if ($data === null) {
+            return '';
+        }
         return htmlspecialchars((string)$data, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
@@ -30,9 +33,17 @@ class Sanitize
     }
 
     // --- POST ---
+    // 注意: post()/get() は「表示用」にエスケープ済みの値を返す。
+    // DB へ保存する値や、数値として扱う値は postRaw()/getRaw() で受け取り、
+    // 表示する時に $s->html() でエスケープするのが正しい流れ。
     public function post($key)
     {
         return isset($_POST[$key]) ? $this->html($_POST[$key]) : null;
+    }
+
+    public function postRaw($key)
+    {
+        return $_POST[$key] ?? null;
     }
 
     public function postt($key)
@@ -59,6 +70,11 @@ class Sanitize
     public function get($key)
     {
         return isset($_GET[$key]) ? $this->html($_GET[$key]) : null;
+    }
+
+    public function getRaw($key)
+    {
+        return $_GET[$key] ?? null;
     }
 
     public function gett($key)
