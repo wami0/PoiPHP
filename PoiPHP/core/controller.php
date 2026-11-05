@@ -14,8 +14,36 @@ class Controller
     public $csrf;
     public $upload;
 
+    // 設定とDB（poiphp.php / boot.php がセットする。宣言しておくことで
+    // PHP 8.2+ の「動的プロパティ非推奨」警告を防ぐ）
+    public $config = null;
+    public $db = null;
+
     public $header_file = null;
     public $footer_file = null;
+
+    // loadModel() で読み込んだモデルと、アプリが自由に付けた値の置き場。
+    // 未宣言プロパティへの代入（動的プロパティ）も、ここで受けて警告を出さない。
+    private $models = [];
+    private $extra = [];
+
+    public function __set($name, $value)
+    {
+        $this->extra[$name] = $value;
+    }
+
+    public function __get($name)
+    {
+        if (isset($this->models[$name])) {
+            return $this->models[$name];
+        }
+        return $this->extra[$name] ?? null;
+    }
+
+    public function __isset($name)
+    {
+        return isset($this->models[$name]) || isset($this->extra[$name]);
+    }
 
     // 変数セット
     public function set($name, $value)
@@ -76,34 +104,55 @@ class Controller
 
     public function loadModel($name)
     {
-        global $config;
+        // パストラバーサル防止：モデル名は英字始まりの識別子だけ許可
+        if (!preg_match('/^[A-Za-z][A-Za-z0-9_]*$/', (string)$name)) {
+            throw new InvalidArgumentException("Invalid model name: {$name}");
+        }
 
-        $db = new PDO(
-            $config['database']['dsn'],
-            $config['database']['user'],
-            $config['database']['pass'],
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]
-        );
+        // 同じモデルは使い回す（呼び出しごとに DB 接続を作らない）
+        if (isset($this->models[$name])) {
+            return $this->models[$name];
+        }
+
+        // PDO は $c->db（Database）が持っている接続を共有する
+        if ($this->db instanceof Database) {
+            $pdo = $this->db->pdo();
+        } else {
+            global $config;
+            $pdo = new PDO(
+                $config['database']['dsn'],
+                $config['database']['user'] ?? null,
+                $config['database']['pass'] ?? null,
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false,
+                ]
+            );
+        }
 
         $file = SCRIPTDIR . "models/{$name}.php";
         if (file_exists($file)) {
             require_once $file;
             $class = $name . "Model";
-            $this->$name = new $class($db);
+            $model = new $class($pdo);
         } else {
-            $this->$name = new Model($db, strtolower($name));
+            $model = new Model($pdo, strtolower($name));
         }
 
-        return $this->$name;
+        $this->models[$name] = $model;
+        return $model;
     }
 
     public function json($data)
     {
         header("Content-Type: application/json; charset=utf-8");
-        echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        if ($json === false) {
+            http_response_code(500);
+            $json = '{"error":"json_encode failed"}';
+        }
+        echo $json;
         exit;
     }
 }
