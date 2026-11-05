@@ -44,40 +44,46 @@ class View
     {
         ob_start();
 
-        $s = $this->sanitize;
-        $c = $this->controller;
+        try {
+            $s = $this->sanitize;
+            $c = $this->controller;
 
-        extract($this->vars, EXTR_SKIP);
+            extract($this->vars, EXTR_SKIP);
 
-        if (!empty($this->header_file)) {
-            if (!file_exists($this->header_file)) {
-                throw new Exception("Header file not found: {$this->header_file}");
+            if (!empty($this->header_file)) {
+                if (!file_exists($this->header_file)) {
+                    throw new Exception("Header file not found: {$this->header_file}");
+                }
+                include $this->header_file;
             }
-            include $this->header_file;
+
+            if (!empty($this->template)) {
+                if (!file_exists($this->template)) {
+                    throw new Exception("Template not found: {$this->template}");
+                }
+                include $this->template;
+            } elseif (!empty($this->viewfile)) {
+                if (!file_exists($this->viewfile)) {
+                    throw new Exception("View file not found: {$this->viewfile}");
+                }
+                include $this->viewfile;
+            } else {
+                throw new Exception("No template or view file specified.");
+            }
+
+            if (!empty($this->footer_file)) {
+                if (!file_exists($this->footer_file)) {
+                    throw new Exception("Footer file not found: {$this->footer_file}");
+                }
+                include $this->footer_file;
+            }
+
+            return ob_get_clean();
+        } catch (Throwable $e) {
+            // 途中で失敗したらバッファを残さず捨てる（半端な出力と二重出力を防ぐ）
+            ob_end_clean();
+            throw $e;
         }
-
-        if (!empty($this->template)) {
-            if (!file_exists($this->template)) {
-                throw new Exception("Template not found: {$this->template}");
-            }
-            include $this->template;
-        } elseif (!empty($this->viewfile)) {
-            if (!file_exists($this->viewfile)) {
-                throw new Exception("View file not found: {$this->viewfile}");
-            }
-            include $this->viewfile;
-        } else {
-            throw new Exception("No template or view file specified.");
-        }
-
-        if (!empty($this->footer_file)) {
-            if (!file_exists($this->footer_file)) {
-                throw new Exception("Footer file not found: {$this->footer_file}");
-            }
-            include $this->footer_file;
-        }
-
-        return ob_get_clean();
     }
 
     private function renderLayout($content)
@@ -91,7 +97,10 @@ class View
 
         extract($this->vars, EXTR_SKIP);
 
+        // 本文の差し込み変数。正式名は $_poi_content。
+        // $_poi_content_for_layout は旧サンプル layout.html が使っていた名前の互換用。
         $_poi_content = $content;
+        $_poi_content_for_layout = $content;
 
         include $this->layout;
     }
