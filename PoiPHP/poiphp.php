@@ -2,22 +2,31 @@
 
 /*
  * PoiPHP Framework
- * Version 1.1.3
+ * Version 1.2.0
  */
 
-// --- 1. 環境設定 ---
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-define('POI_VERSION', '1.1.1');
+// --- 1. バージョン・パス ---
+define('POI_VERSION', '1.2.0');
 if (!defined('POI_DIR')) {
     define('POI_DIR', __DIR__);
 }
 
-$html_dir = dirname(POI_DIR) . '/html/';
+// --- 2. 設定の先読み ---
+// エラー表示を debug フラグで切り替えるため、boot より前に読む。
+// $config は boot.php と各コアクラスから global 参照される。
+$config = [];
+if (is_file(POI_DIR . '/config.php')) {
+    $config = require POI_DIR . '/config.php';
+}
+$poiDebug = !empty($config['debug']);
 
-// --- 2. オートロード設定 ---
-spl_autoload_register(function($class){
+// 本番（debug=false）ではエラー詳細を画面に出さず、ログに残す。
+ini_set('display_errors', $poiDebug ? '1' : '0');
+ini_set('log_errors', '1');
+error_reporting(E_ALL);
+
+// --- 3. オートロード設定 ---
+spl_autoload_register(function ($class) {
     $dirs = ['core', 'models'];
     foreach ($dirs as $dir) {
         $file1 = POI_DIR . "/$dir/$class.php";
@@ -28,11 +37,9 @@ spl_autoload_register(function($class){
     }
 });
 
-// --- 3. コア・ユーティリティの準備 ---
+// --- 4. 初期化（$c は boot.php で作られる1つだけを使う） ---
 require_once POI_DIR . '/core/boot.php';
 require_once POI_DIR . '/core/router.php';
-
-$c = new Controller();
 
 // ヘルパー関数 h() の定義（テンプレートで $s->h() 以外に h() も使えるようにする）
 if (!function_exists('h')) {
@@ -45,39 +52,40 @@ if (!function_exists('html')) {
     function html($data) { return h($data); }
 }
 
-// --- 4. 設定とデータベースの初期化 ---
-$conf_path = POI_DIR . '/config.php';
-
-if (file_exists($conf_path)) {
-    $config = require $conf_path;
-    $c->config = $config;
-
-    // Databaseクラスが存在し、DSNが設定されていれば接続
-    if (isset($config['database']['dsn']) && class_exists('Database')) {
+// --- 5. ルーティングと描画 ---
+try {
+    // DB は「登録だけ」する。実際の接続は Database が初回利用時に行う（遅延接続）ので、
+    // DB を使わないページで接続エラーが起きることはない。
+    if (!empty($config['database']['dsn']) && class_exists('Database')) {
         $c->db = new Database(
             $config['database']['dsn'],
             $config['database']['user'] ?? null,
             $config['database']['pass'] ?? null
         );
     }
+
+    $router = new Router();
+    $router->dispatch($c);
+
+    $c->render();
+
+} catch (Throwable $e) {
+    // 描画途中の出力バッファは捨てて、エラーメッセージと混ざらないようにする
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
+    $isNotFound = ($e->getCode() === 404);
+    http_response_code($isNotFound ? 404 : 500);
+    error_log('[PoiPHP] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+
+    if ($poiDebug) {
+        echo '<pre style="color:#c00">';
+        echo htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "\n";
+        echo htmlspecialchars($e->getFile(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ':' . $e->getLine() . "\n";
+        echo htmlspecialchars($e->getTraceAsString(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        echo '</pre>';
+    } else {
+        echo $isNotFound ? '404 Not Found' : '500 Internal Server Error';
+    }
 }
-
-// --- 5. ルーティングと機能拡張のセット ---
-$router = new Router();
-$c = $router->dispatch($c);
-
-// Sanitize のセット
-if (class_exists('Sanitize')) {
-    $s_obj = new Sanitize(); // 一度変数に入れる
-    $c->setSanitize($s_obj); // 変数を渡す
-}
-
-// Validate のセット
-if (class_exists('Validate')) {
-    $v_obj = new Validate(); // 一度変数に入れる
-    $c->setValidate($v_obj); // 変数を渡す
-}
-
-// --- 6. 描画処理 ---
-// action() 内の処理が終わり、最終的な描画を実行
-$c->render();
