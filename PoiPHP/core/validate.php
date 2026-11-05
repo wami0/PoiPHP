@@ -2,16 +2,31 @@
 
 class Validate
 {
+    // 文字列として扱える値だけ文字列化する（配列・オブジェクト・null の型事故防止）。
+    // 扱えない型なら null を返す＝検証失敗として扱う。
+    private function toStr($data)
+    {
+        if (is_string($data) || is_numeric($data) || is_bool($data)) {
+            return (string)$data;
+        }
+        return null;
+    }
+
     // 空チェック（nullや型違いも考慮）
     public function notempty($data, $errmsg = "")
     {
-        return $this->_check(trim((string)$data) !== '', $errmsg);
+        $str = $this->toStr($data);
+        return $this->_check($str !== null && trim($str) !== '', $errmsg);
     }
 
     // 文字数チェック
     public function len($data, $max, $min = 0, $errmsg = "")
     {
-        $len = mb_strlen((string)$data);
+        $str = $this->toStr($data);
+        if ($str === null) {
+            return $this->_check(false, $errmsg);
+        }
+        $len = mb_strlen($str);
         $ok = ($min <= $len && $len <= $max);
         return $this->_check($ok, $errmsg);
     }
@@ -25,19 +40,22 @@ class Validate
     // 英数字
     public function eisu($data, $errmsg = "")
     {
-        return $this->_check(preg_match("/^[0-9a-zA-Z]+$/", $data), $errmsg);
+        $str = $this->toStr($data);
+        return $this->_check($str !== null && preg_match("/^[0-9a-zA-Z]+$/", $str) === 1, $errmsg);
     }
 
     // 英数字 + - _
     public function eisu_hu($data, $errmsg = "")
     {
-        return $this->_check(preg_match("/^[0-9a-zA-Z\-\_]+$/", $data), $errmsg);
+        $str = $this->toStr($data);
+        return $this->_check($str !== null && preg_match("/^[0-9a-zA-Z\\-\\_]+$/", $str) === 1, $errmsg);
     }
 
     // メール
     public function email($data, $errmsg = "")
     {
-        $ok = filter_var($data, FILTER_VALIDATE_EMAIL) !== false;
+        $str = $this->toStr($data);
+        $ok = $str !== null && filter_var($str, FILTER_VALIDATE_EMAIL) !== false;
         return $this->_check($ok, $errmsg);
     }
 
